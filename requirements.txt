@@ -1,4 +1,0 @@
-torch>=2.2
-numpy>=1.26
-astropy>=6.0
-rich>=13.0

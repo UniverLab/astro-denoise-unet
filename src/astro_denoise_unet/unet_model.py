@@ -13,7 +13,7 @@ faster for denoising than predicting the clean image directly.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import numpy as np
@@ -23,10 +23,10 @@ from torch.utils.data import DataLoader, Dataset
 
 from .interface import DenoiseMethod
 
-
 # ---------------------------------------------------------------------------
 # architecture
 # ---------------------------------------------------------------------------
+
 
 class DoubleConv(nn.Module):
     """(Conv3x3 -> BatchNorm -> ReLU) x 2, the basic U-Net block."""
@@ -74,9 +74,7 @@ class UNet(nn.Module):
         self.upconvs = nn.ModuleList()
         self.decoders = nn.ModuleList()
         for skip_ch in reversed(channels[:-1]):
-            self.upconvs.append(
-                nn.ConvTranspose2d(skip_ch * 2, skip_ch, kernel_size=2, stride=2)
-            )
+            self.upconvs.append(nn.ConvTranspose2d(skip_ch * 2, skip_ch, kernel_size=2, stride=2))
             self.decoders.append(DoubleConv(skip_ch * 2, skip_ch))
         self.head = nn.Conv2d(channels[0], 1, kernel_size=1)
 
@@ -87,8 +85,7 @@ class UNet(nn.Module):
             skips.append(x)
             x = self.pool(x)
         x = self.bottleneck(x)
-        for upconv, decoder, skip in zip(self.upconvs, self.decoders,
-                                         reversed(skips)):
+        for upconv, decoder, skip in zip(self.upconvs, self.decoders, reversed(skips), strict=True):
             x = upconv(x)
             x = decoder(torch.cat([skip, x], dim=1))
         return self.head(x)  # predicted noise residual
@@ -98,12 +95,13 @@ class UNet(nn.Module):
 # training configuration and data
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TrainConfig:
     epochs: int = 20
     lr: float = 1e-3
     batch_size: int = 8
-    loss: str = "l1"          # "l1" | "l2" (a.k.a. "mse")
+    loss: str = "l1"  # "l1" | "l2" (a.k.a. "mse")
     weight_decay: float = 0.0
     seed: int = 42
 
@@ -122,14 +120,16 @@ class _PairDataset(Dataset):
         if len(noisy_patches) != len(clean_patches):
             raise ValueError("noisy and clean patch lists differ in length")
         self.items = []
-        for noisy, clean in zip(noisy_patches, clean_patches):
+        for noisy, clean in zip(noisy_patches, clean_patches, strict=True):
             noisy_n, offset, scale = robust_normalize(noisy)
             clean_n = (np.asarray(clean, dtype=np.float32) - offset) / scale
             residual = noisy_n - clean_n
-            self.items.append((
-                torch.from_numpy(noisy_n[None]),
-                torch.from_numpy(residual[None]),
-            ))
+            self.items.append(
+                (
+                    torch.from_numpy(noisy_n[None]),
+                    torch.from_numpy(residual[None]),
+                )
+            )
 
     def __len__(self):
         return len(self.items)
@@ -153,6 +153,7 @@ def robust_normalize(patch):
 # denoiser
 # ---------------------------------------------------------------------------
 
+
 class UNetDenoiser(DenoiseMethod):
     """U-Net denoising method implementing the astro-denoise contract.
 
@@ -165,9 +166,7 @@ class UNetDenoiser(DenoiseMethod):
     """
 
     def __init__(self, weights=None, device=None, base_channels=32, depth=3):
-        self.device = torch.device(
-            device or ("cuda" if torch.cuda.is_available() else "cpu")
-        )
+        self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         self.model = UNet(base_channels=base_channels, depth=depth)
         self.trained = False
         if weights is not None:
@@ -208,8 +207,7 @@ class UNetDenoiser(DenoiseMethod):
 
     # -- training -----------------------------------------------------------
 
-    def train(self, noisy_patches, clean_patches, config: TrainConfig | None = None,
-              log=None):
+    def train(self, noisy_patches, clean_patches, config: TrainConfig | None = None, log=None):
         """Supervised training on (noisy, clean) patch pairs.
 
         Returns the list of mean epoch losses. ``log`` is an optional
@@ -221,7 +219,8 @@ class UNetDenoiser(DenoiseMethod):
         loader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
         criterion = config.make_loss()
         optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=config.lr,
+            self.model.parameters(),
+            lr=config.lr,
             weight_decay=config.weight_decay,
         )
 
@@ -247,9 +246,7 @@ class UNetDenoiser(DenoiseMethod):
 
     def fit(self, patches):
         """DenoiseMethod hook: unsupervised fit is not defined for U-Net."""
-        raise NotImplementedError(
-            "UNetDenoiser requires (noisy, clean) pairs; use train()"
-        )
+        raise NotImplementedError("UNetDenoiser requires (noisy, clean) pairs; use train()")
 
     # -- persistence --------------------------------------------------------
 

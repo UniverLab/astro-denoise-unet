@@ -1,8 +1,61 @@
-.venv/
+# AI coding agents
+.kiro/
+.cursor/
+.windsurf/
+.claude/
+.continue/
+.copilot/
+.kilocode/
+.zencoder/
+.qwen/
+.agents/
+skills-lock.json
+
+# Python
 __pycache__/
-*.pyc
-*.egg-info/
+*.py[cod]
+*$py.class
+*.so
+.Python
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Type checking
+.mypy_cache/
+
+# Environment
+.env
+.env.local
+
+# Project-specific
 *.fits
 *.pt

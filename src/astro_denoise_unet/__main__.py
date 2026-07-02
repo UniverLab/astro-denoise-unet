@@ -48,8 +48,7 @@ def load_image(path):
     with fits.open(path) as hdul:
         for hdu in hdul:
             if hdu.data is not None and np.asarray(hdu.data).ndim == 2:
-                return (np.asarray(hdu.data, dtype=np.float64),
-                        hdu.header.copy())
+                return (np.asarray(hdu.data, dtype=np.float64), hdu.header.copy())
     raise ValueError(f"{path}: no 2-D image HDU found")
 
 
@@ -78,8 +77,9 @@ def run_inference(args, config, console):
 
     header["HISTORY"] = f"astro-denoise-unet {__version__}"
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    fits.PrimaryHDU(data=denoised.astype(np.float32),
-                    header=header).writeto(args.output, overwrite=True)
+    fits.PrimaryHDU(data=denoised.astype(np.float32), header=header).writeto(
+        args.output, overwrite=True
+    )
     console.print(
         f"[green]ok[/green] {args.input.name} -> {args.output.name} "
         f"({elapsed:.2f}s, device={denoiser.device})"
@@ -100,15 +100,11 @@ def run_training(args, config, console):
     data_dir = args.data_dir
     pairs = []
     for noisy_path in sorted(data_dir.glob("*_noisy.fits")):
-        clean_path = noisy_path.with_name(
-            noisy_path.name.replace("_noisy.fits", "_clean.fits")
-        )
+        clean_path = noisy_path.with_name(noisy_path.name.replace("_noisy.fits", "_clean.fits"))
         if clean_path.exists():
             pairs.append((noisy_path, clean_path))
     if not pairs:
-        raise FileNotFoundError(
-            f"no *_noisy.fits / *_clean.fits pairs found in {data_dir}"
-        )
+        raise FileNotFoundError(f"no *_noisy.fits / *_clean.fits pairs found in {data_dir}")
 
     noisy = [load_image(n)[0] for n, _ in pairs]
     clean = [load_image(c)[0] for _, c in pairs]
@@ -158,12 +154,16 @@ def main(argv=None):
     parser.add_argument("--input", type=Path, help="Input FITS image")
     parser.add_argument("--output", type=Path, help="Output FITS image")
     parser.add_argument("--config", type=Path, default=None)
-    parser.add_argument("--train", action="store_true",
-                        help="Train instead of running inference")
-    parser.add_argument("--data-dir", type=Path,
-                        help="Training data dir with *_noisy/*_clean pairs")
-    parser.add_argument("--weights", type=Path, default=Path("unet_weights.pt"),
-                        help="Checkpoint path written by --train")
+    parser.add_argument("--train", action="store_true", help="Train instead of running inference")
+    parser.add_argument(
+        "--data-dir", type=Path, help="Training data dir with *_noisy/*_clean pairs"
+    )
+    parser.add_argument(
+        "--weights",
+        type=Path,
+        default=Path("unet_weights.pt"),
+        help="Checkpoint path written by --train",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -180,8 +180,11 @@ def main(argv=None):
         return 0
     except Exception as exc:
         console.print(f"[red]error:[/red] {exc}")
-        print(json.dumps({"algorithm": "unet", "version": __version__,
-                          "status": "error", "error": str(exc)}))
+        print(
+            json.dumps(
+                {"algorithm": "unet", "version": __version__, "status": "error", "error": str(exc)}
+            )
+        )
         return 1
 
 

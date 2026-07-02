@@ -23,5 +23,5 @@ class DenoiseMethod(ABC):
     def name(self) -> str:
         """Short identifier of the method (e.g. ``"unet"``)."""
 
-    def fit(self, patches: list[np.ndarray]) -> None:
+    def fit(self, patches: list[np.ndarray]) -> None:  # noqa: B027
         """Optional training/calibration step."""

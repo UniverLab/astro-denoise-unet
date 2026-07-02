@@ -11,11 +11,13 @@ imágenes astronómicas.
 ## Instalación
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
-pip install -e .   # registra el entry point astro_denoise.methods/unet
+uv sync --all-extras
 ```
+
+Esto crea `.venv/` e instala el paquete en modo editable (`src/astro_denoise_unet/`),
+resolviendo `torch` contra el índice CPU de PyTorch (`[tool.uv.sources]` en
+`pyproject.toml`), y registra el entry point `astro_denoise.methods/unet` junto
+con las dependencias de desarrollo (pytest, ruff, mypy).
 
 ## API
 
@@ -84,13 +86,38 @@ CLI lo advierte por stderr (útil solo para smoke tests).
 ## Tests
 
 ```bash
-pip install -e ".[dev]"
-pytest
+uv run pytest
 ```
 
 Usan una red diminuta (`base_channels=4, depth=2`) en CPU: normalización
 robusta, padding, entrenamiento que reduce la pérdida, roundtrip de pesos y
 el flujo CLI completo train → inferencia.
+
+## Desarrollo
+
+```bash
+uv run ruff format .
+uv run ruff check .
+uv run mypy src/
+```
+
+Las cuatro comprobaciones (format, lint, mypy, pytest) corren en CI vía el
+workflow reusable [`UniverLab/workflows`](https://github.com/UniverLab/workflows).
+
+## Estructura del proyecto
+
+```
+astro-denoise-unet/
+├── pyproject.toml
+├── src/
+│   └── astro_denoise_unet/
+│       ├── __init__.py
+│       ├── __main__.py       # CLI entry point
+│       ├── interface.py      # DenoiseMethod ABC
+│       └── unet_model.py
+├── tests/
+└── README.md
+```
 
 ---
 Este submódulo forma parte de la plataforma `astro-denoise`; véase

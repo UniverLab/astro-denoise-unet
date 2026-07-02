@@ -86,9 +86,7 @@ class TestUNetDenoiser:
         restored = UNetDenoiser(weights=path, **TINY)
         assert restored.trained
         patch = np.random.default_rng(3).normal(size=(32, 32))
-        np.testing.assert_allclose(
-            restored.denoise(patch), denoiser.denoise(patch), rtol=1e-5
-        )
+        np.testing.assert_allclose(restored.denoise(patch), denoiser.denoise(patch), rtol=1e-5)
 
     def test_mismatched_pairs_raise(self):
         with pytest.raises(ValueError):
