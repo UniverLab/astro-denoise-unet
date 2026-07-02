@@ -81,6 +81,17 @@ CLI lo advierte por stderr (útil solo para smoke tests).
 - Los pesos entrenados en DC2 se distribuirán vía Hugging Face Hub cuando
   estén disponibles.
 
+## Tests
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
+
+Usan una red diminuta (`base_channels=4, depth=2`) en CPU: normalización
+robusta, padding, entrenamiento que reduce la pérdida, roundtrip de pesos y
+el flujo CLI completo train → inferencia.
+
 ---
 Este submódulo forma parte de la plataforma `astro-denoise`; véase
 [`CONTEXT_v2.md`](../../CONTEXT_v2.md) para arquitectura y motivación.
