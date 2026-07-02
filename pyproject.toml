@@ -15,6 +15,9 @@ dependencies = [
     "rich>=13.0",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
 [project.entry-points."astro_denoise.methods"]
 unet = "astro_denoise_unet.unet_model:UNetDenoiser"
 
