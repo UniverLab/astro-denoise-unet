@@ -1,0 +1,6 @@
+{
+  "weights": "/home/jheisonmblivecom/Projects/astro-denoise/code/astro-denoise-unet/weights/unet_dc2_v2.pt",
+  "base_channels": 32,
+  "depth": 3,
+  "device": "cpu"
+}
