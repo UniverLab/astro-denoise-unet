@@ -8,7 +8,14 @@ Training:
     python -m astro_denoise_unet --train --data-dir /path/to/pairs \
         --weights model.pt [--config config.json]
 
-    where the data dir contains ``*_noisy.fits`` / ``*_clean.fits`` pairs.
+    where the data dir contains ``*_noisy.fits`` / ``*_clean.fits`` pairs, or
+
+    python -m astro_denoise_unet --train --manifest data/curated/manifest.json \
+        --weights model.pt [--config config.json]
+
+    which manufactures pairs from the curated DC2 block by noise injection
+    (clean = smoothed real region, noisy = clean + noise drawn from the
+    VARIANCE plane; see ``training_data.py``).
 
 stdout emits a single JSON line, e.g.:
     {"algorithm": "unet", "version": "0.1.0", "status": "ok"}
@@ -20,6 +27,8 @@ Config keys (all optional):
     device           "cpu" | "cuda"
     epochs, lr, batch_size, loss ("l1"|"l2"), weight_decay, seed
                      training hyperparameters
+    smooth_sigma, noise_scale, patch_size, pair_seed, bands
+                     noise-injection recipe (manifest training only)
 """
 
 from __future__ import annotations
@@ -35,6 +44,7 @@ from astropy.io import fits
 from rich.console import Console
 
 from . import __version__
+from .training_data import PairConfig, pairs_from_manifest
 from .unet_model import TrainConfig, UNetDenoiser
 
 
@@ -96,8 +106,8 @@ def run_inference(args, config, console):
     }
 
 
-def run_training(args, config, console):
-    data_dir = args.data_dir
+def load_pair_dir(data_dir):
+    """(noisy, clean) patch lists from ``*_noisy.fits`` / ``*_clean.fits`` pairs."""
     pairs = []
     for noisy_path in sorted(data_dir.glob("*_noisy.fits")):
         clean_path = noisy_path.with_name(noisy_path.name.replace("_noisy.fits", "_clean.fits"))
@@ -105,9 +115,30 @@ def run_training(args, config, console):
             pairs.append((noisy_path, clean_path))
     if not pairs:
         raise FileNotFoundError(f"no *_noisy.fits / *_clean.fits pairs found in {data_dir}")
-
     noisy = [load_image(n)[0] for n, _ in pairs]
     clean = [load_image(c)[0] for _, c in pairs]
+    return noisy, clean, {"data_dir": str(data_dir), "n_patches": len(pairs)}
+
+
+def run_training(args, config, console):
+    if args.manifest:
+        bands = config.get("bands")
+        pair_config = PairConfig(
+            smooth_sigma=config.get("smooth_sigma", 1.5),
+            noise_scale=config.get("noise_scale", 1.0),
+            patch_size=config.get("patch_size", 128),
+            seed=config.get("pair_seed", 42),
+            bands=list(bands) if bands else None,
+        )
+        noisy, clean, source = pairs_from_manifest(args.manifest, pair_config)
+        console.print(
+            f"noise-injection pairs from {source['n_regions']} regions "
+            f"(smooth_sigma={source['smooth_sigma']}, noise_scale={source['noise_scale']}, "
+            f"patch_size={source['patch_size']}, pair_seed={source['pair_seed']})"
+        )
+    else:
+        noisy, clean, source = load_pair_dir(args.data_dir)
+
     train_config = TrainConfig(
         epochs=config.get("epochs", 20),
         lr=config.get("lr", 1e-3),
@@ -122,7 +153,7 @@ def run_training(args, config, console):
         depth=config.get("depth", 3),
     )
     console.print(
-        f"training on {len(pairs)} pairs, {train_config.epochs} epochs, "
+        f"training on {len(noisy)} patches, {train_config.epochs} epochs, "
         f"loss={train_config.loss}, lr={train_config.lr}, "
         f"device={denoiser.device}"
     )
@@ -138,10 +169,11 @@ def run_training(args, config, console):
         "version": __version__,
         "status": "ok",
         "mode": "train",
-        "n_pairs": len(pairs),
+        "n_pairs": len(noisy),
         "epochs": train_config.epochs,
         "final_loss": history[-1],
         "weights": str(args.weights),
+        "source": source,
     }
 
 
@@ -159,6 +191,12 @@ def main(argv=None):
         "--data-dir", type=Path, help="Training data dir with *_noisy/*_clean pairs"
     )
     parser.add_argument(
+        "--manifest",
+        type=Path,
+        help="Curated-block manifest.json: train on noise-injection pairs "
+        "built from the real regions (alternative to --data-dir)",
+    )
+    parser.add_argument(
         "--weights",
         type=Path,
         default=Path("unet_weights.pt"),
@@ -169,8 +207,8 @@ def main(argv=None):
     try:
         config = load_config(args.config)
         if args.train:
-            if not args.data_dir:
-                parser.error("--train requires --data-dir")
+            if not args.data_dir and not args.manifest:
+                parser.error("--train requires --data-dir or --manifest")
             payload = run_training(args, config, console)
         else:
             if not args.input or not args.output:
