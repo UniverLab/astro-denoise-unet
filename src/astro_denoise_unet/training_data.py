@@ -43,6 +43,10 @@ class PairConfig:
         Seed of the noise-injection RNG (recorded for reproducibility).
     bands : list[str] or None
         Restrict to these bands; ``None`` uses every region.
+    tracts : list[int] or None
+        Restrict to regions from these tracts; ``None`` uses every
+        region. Training and evaluation must use disjoint tracts so the
+        benchmark only scores regions the network never saw.
     """
 
     smooth_sigma: float = 1.5
@@ -50,6 +54,7 @@ class PairConfig:
     patch_size: int | None = 128
     seed: int = 42
     bands: list[str] | None = None
+    tracts: list[int] | None = None
 
 
 def load_region(path):
@@ -107,6 +112,8 @@ def pairs_from_manifest(manifest_path, config: PairConfig | None = None):
     for region in manifest["regions"]:
         if config.bands and region["band"] not in config.bands:
             continue
+        if config.tracts and region.get("tract") not in config.tracts:
+            continue
         image, variance = load_region(manifest_path.parent / region["path"])
         if variance is None:
             skipped.append(region["id"])
@@ -136,5 +143,6 @@ def pairs_from_manifest(manifest_path, config: PairConfig | None = None):
         "patch_size": config.patch_size,
         "pair_seed": config.seed,
         "bands": config.bands or manifest.get("bands"),
+        "tracts": config.tracts or manifest.get("tracts"),
     }
     return noisy_patches, clean_patches, info

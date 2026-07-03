@@ -27,8 +27,10 @@ Config keys (all optional):
     device           "cpu" | "cuda"
     epochs, lr, batch_size, loss ("l1"|"l2"), weight_decay, seed
                      training hyperparameters
-    smooth_sigma, noise_scale, patch_size, pair_seed, bands
-                     noise-injection recipe (manifest training only)
+    smooth_sigma, noise_scale, patch_size, pair_seed, bands, tracts
+                     noise-injection recipe (manifest training only);
+                     "tracts" restricts training to those tracts so the
+                     benchmark can evaluate on held-out ones
 """
 
 from __future__ import annotations
@@ -123,18 +125,21 @@ def load_pair_dir(data_dir):
 def run_training(args, config, console):
     if args.manifest:
         bands = config.get("bands")
+        tracts = config.get("tracts")
         pair_config = PairConfig(
             smooth_sigma=config.get("smooth_sigma", 1.5),
             noise_scale=config.get("noise_scale", 1.0),
             patch_size=config.get("patch_size", 128),
             seed=config.get("pair_seed", 42),
             bands=list(bands) if bands else None,
+            tracts=[int(t) for t in tracts] if tracts else None,
         )
         noisy, clean, source = pairs_from_manifest(args.manifest, pair_config)
         console.print(
             f"noise-injection pairs from {source['n_regions']} regions "
-            f"(smooth_sigma={source['smooth_sigma']}, noise_scale={source['noise_scale']}, "
-            f"patch_size={source['patch_size']}, pair_seed={source['pair_seed']})"
+            f"(tracts={source['tracts']}, smooth_sigma={source['smooth_sigma']}, "
+            f"noise_scale={source['noise_scale']}, patch_size={source['patch_size']}, "
+            f"pair_seed={source['pair_seed']})"
         )
     else:
         noisy, clean, source = load_pair_dir(args.data_dir)

@@ -29,22 +29,24 @@ def write_region(path, rng, size=32, with_variance=True):
 
 @pytest.fixture
 def curated_block(tmp_path):
-    """Tiny curated block: manifest + 3 regions (bands z, z, r)."""
+    """Tiny curated block: manifest + 3 regions (bands z, z, r; tracts 1, 2, 1)."""
     rng = np.random.default_rng(7)
     regions_dir = tmp_path / "regions"
     regions_dir.mkdir()
     regions = []
-    for i, band in enumerate(["z", "z", "r"]):
-        name = f"t0-p00-{band}-r{i}.fits"
+    for i, (band, tract) in enumerate([("z", 1), ("z", 2), ("r", 1)]):
+        name = f"t{tract}-p00-{band}-r{i}.fits"
         write_region(regions_dir / name, rng)
-        regions.append({"id": name[:-5], "band": band, "path": f"regions/{name}"})
+        regions.append({"id": name[:-5], "band": band, "tract": tract, "path": f"regions/{name}"})
     manifest = tmp_path / "manifest.json"
-    manifest.write_text(json.dumps({"seed": 123, "bands": ["r", "z"], "regions": regions}))
+    manifest.write_text(
+        json.dumps({"seed": 123, "bands": ["r", "z"], "tracts": [1, 2], "regions": regions})
+    )
     return manifest
 
 
 def test_load_region_returns_image_and_variance(curated_block):
-    image, variance = load_region(curated_block.parent / "regions/t0-p00-z-r0.fits")
+    image, variance = load_region(curated_block.parent / "regions/t1-p00-z-r0.fits")
     assert image.shape == (32, 32)
     assert variance is not None
     assert np.allclose(variance, 0.05**2)
@@ -82,6 +84,18 @@ def test_pairs_from_manifest_with_band_filter(curated_block):
     assert info["patch_size"] == 16
     assert info["pair_seed"] == 5
     assert info["manifest_seed"] == 123
+
+
+def test_pairs_from_manifest_with_tract_filter(curated_block):
+    noisy, clean, info = pairs_from_manifest(curated_block, PairConfig(patch_size=16, tracts=[1]))
+    # only the two tract-1 regions (bands z and r) are used for training
+    assert info["n_regions"] == 2
+    assert info["tracts"] == [1]
+    assert len(noisy) == len(clean) == 2 * 4
+
+    _, _, info_all = pairs_from_manifest(curated_block, PairConfig(patch_size=16))
+    assert info_all["n_regions"] == 3
+    assert info_all["tracts"] == [1, 2]  # falls back to the manifest's tracts
 
 
 def test_pairs_from_manifest_skips_regions_without_variance(tmp_path):

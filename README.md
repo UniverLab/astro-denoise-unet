@@ -52,6 +52,18 @@ python -m astro_denoise_unet --train \
     --config config.json
 ```
 
+Entrenamiento con datos DC2 reales (bloque curado de bench, vía **inyección
+de ruido**: el target limpio es la región real suavizada con una Gaussiana y
+la entrada ruidosa es ese target más ruido gaussiano por píxel extraído del
+plano VARIANCE de la propia región):
+
+```bash
+python -m astro_denoise_unet --train \
+    --manifest data/curated/manifest.json \
+    --weights weights/unet_dc2_v1.pt \
+    --config config.json
+```
+
 `config.json` (todas las claves opcionales):
 
 ```json
@@ -63,9 +75,22 @@ python -m astro_denoise_unet --train \
   "epochs": 20,
   "lr": 0.001,
   "batch_size": 8,
-  "loss": "l1"
+  "loss": "l1",
+  "patch_size": 128,
+  "smooth_sigma": 1.5,
+  "noise_scale": 1.0,
+  "pair_seed": 42,
+  "bands": ["z", "r"],
+  "tracts": [3828]
 }
 ```
+
+Las últimas seis claves solo aplican al modo `--manifest` (receta de
+inyección de ruido; queda registrada en el JSON que emite el entrenamiento).
+`tracts` restringe el entrenamiento a esos tracts: entrenamiento y
+evaluación deben usar tracts **disjuntos** para que el benchmark solo
+puntúe regiones que la red nunca vio (p. ej. entrenar con 3828 y evaluar
+con 3829).
 
 stdout devuelve una línea JSON con los metadatos mínimos del protocolo:
 
@@ -80,8 +105,10 @@ CLI lo advierte por stderr (útil solo para smoke tests).
 
 - Los parches se acolchan por reflexión hasta múltiplos de `2**depth`, así
   que cualquier tamaño de entrada es válido.
-- Los pesos entrenados en DC2 se distribuirán vía Hugging Face Hub cuando
-  estén disponibles.
+- Los pesos entrenados en DC2 viven en `weights/` (gitignored vía `*.pt`);
+  la receta y el log de cada corrida quedan junto a los pesos
+  (`train_config_*.json`, `train_report_*.json`). Se distribuirán vía
+  Hugging Face Hub cuando estén validados.
 
 ## Tests
 
@@ -114,6 +141,7 @@ astro-denoise-unet/
 │       ├── __init__.py
 │       ├── __main__.py       # CLI entry point
 │       ├── interface.py      # DenoiseMethod ABC
+│       ├── training_data.py  # pares por inyección de ruido desde el manifest
 │       └── unet_model.py
 ├── tests/
 └── README.md
