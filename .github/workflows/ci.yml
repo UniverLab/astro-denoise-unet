@@ -7,5 +7,3 @@ on:
 jobs:
   python-ci:
     uses: UniverLab/workflows/.github/workflows/python-ci.yml@main
-    with:
-      python-version: "3.12"
