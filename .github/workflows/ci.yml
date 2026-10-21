@@ -7,7 +7,3 @@ on:
 jobs:
   python-ci:
     uses: UniverLab/workflows/.github/workflows/python-ci.yml@main
-    with:
-      # Trunk-based (decision 10eadef1): no version bump on PRs; the version
-      # moves when a release is cut.
-      main-pr-checks: false
