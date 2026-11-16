@@ -53,7 +53,13 @@ from .unet_model import TrainConfig, UNetDenoiser
 def load_config(path):
     if path is None:
         return {}
-    return json.loads(Path(path).read_text())
+    path = Path(path)
+    config = json.loads(path.read_text())
+    weights = config.get("weights")
+    if weights is not None and not Path(weights).is_absolute():
+        # A relative weights path is relative to the config file, not the CWD.
+        config["weights"] = str(path.parent / weights)
+    return config
 
 
 def load_image(path):
