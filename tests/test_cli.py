@@ -107,3 +107,15 @@ def test_train_without_pairs_is_structured_error(tmp_path, capsys):
     )
     assert rc == 1
     assert last_json(capsys)["status"] == "error"
+
+
+def test_relative_weights_resolve_against_config_file(tmp_path, monkeypatch):
+    from astro_denoise_unet.__main__ import load_config
+
+    cfg_dir = tmp_path / "cfg"
+    cfg_dir.mkdir()
+    (cfg_dir / "c.json").write_text(json.dumps({"weights": "w.pt"}))
+    monkeypatch.chdir(tmp_path)
+    assert load_config(cfg_dir / "c.json")["weights"] == str(cfg_dir / "w.pt")
+    (cfg_dir / "a.json").write_text(json.dumps({"weights": "/abs/w.pt"}))
+    assert load_config(cfg_dir / "a.json")["weights"] == "/abs/w.pt"
